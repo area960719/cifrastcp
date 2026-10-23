@@ -1,121 +1,146 @@
-// --- 1. CONFIGURACIÓN DE SUPABASE ---
-const supabaseUrl = 'https://cqldvxxeplxhfsppyujs.supabase.co';
+// ==========================================
+// 1. CONFIGURACIÓN DE SUPABASE
+// ==========================================
+// REEMPLAZA ESTOS TEXTOS CON TUS DATOS REALES DE SUPABASE:
+const SUPABASE_URL = 'https://cqldvxxeplxhfsppyujs.supabase.co
+'; 
+const SUPABASE_KEY = 'sb_publishable_RTmvgTh5XfJcVUw5Vc91HQ_I-O33fiJ
+';
 
-const supabaseKey = 'sb_publishable_RTmvgTh5XfJcVUw5Vc91HQ_I-O33fiJ';
-const db = supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// --- 2. LÓGICA DEL FORMULARIO DE MOVIMIENTOS (Ingresos/Gastos) ---
-document.getElementById('form-movimiento').addEventListener('submit', async (e) => {
+// ==========================================
+// 2. ELEMENTOS DEL DOM
+// ==========================================
+const formMovimiento = document.getElementById('form-movimiento');
+const formOnat = document.getElementById('form-onat');
+const listaRegistros = document.getElementById('lista-registros');
+const balanceTotal = document.getElementById('balance-total');
+
+// ==========================================
+// 3. LÓGICA PARA GUARDAR MOVIMIENTOS
+// ==========================================
+formMovimiento.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
     const tipo = document.getElementById('tipo-mov').value;
     const monto = parseFloat(document.getElementById('monto-mov').value);
     const descripcion = document.getElementById('desc-mov').value;
 
-    const { error } = await db.from('movimientos').insert([{ tipo, monto, descripcion }]);
+    const { error } = await supabaseClient
+        .from('movimientos')
+        .insert([{ tipo: tipo, monto: monto, descripcion: descripcion }]);
 
     if (error) {
-        alert('❌ Error: ' + error.message);
+        alert('Error al guardar movimiento: ' + error.message);
+        console.error(error);
     } else {
-        alert('✅ Movimiento guardado');
-        document.getElementById('form-movimiento').reset();
-        cargarRegistros(); // Actualiza la lista
+        alert('¡Movimiento guardado con éxito!');
+        formMovimiento.reset();
+        cargarDatos(); // Actualiza la lista y el balance
     }
 });
 
-// --- 3. LÓGICA DEL FORMULARIO DE LA ONAT ---
-document.getElementById('form-onat').addEventListener('submit', async (e) => {
+// ==========================================
+// 4. LÓGICA PARA GUARDAR PAGO ONAT
+// ==========================================
+formOnat.addEventListener('submit', async (e) => {
     e.preventDefault();
+    
     const fecha = document.getElementById('fecha-onat').value;
     const deposito = parseFloat(document.getElementById('deposito-onat').value);
-    const impuesto = parseFloat(document.getElementById('pago-onat').value);
+    // AQUÍ ESTABA EL ERROR: Capturamos el ID 'pago-onat' y lo enviamos a la columna 'monto'
+    const monto = parseFloat(document.getElementById('pago-onat').value); 
 
-    const { error } = await db.from('pagos_onat').insert([{ fecha, deposito, impuesto }]);
+    const { error } = await supabaseClient
+        .from('pagos_onat')
+        .insert([{ 
+            fecha: fecha, 
+            deposito: deposito, 
+            monto: monto 
+        }]);
 
     if (error) {
-        alert('❌ Error: ' + error.message);
+        alert('Error al guardar pago ONAT: ' + error.message);
+        console.error(error);
     } else {
-        alert('✅ Pago ONAT registrado');
-        document.getElementById('form-onat').reset();
-        cargarRegistros(); // Actualiza la lista
+        alert('¡Pago ONAT registrado con éxito!');
+        formOnat.reset();
+        cargarDatos();
     }
 });
 
-// --- 4. MOSTRAR HISTORIAL Y CALCULAR BALANCE ---
-async function cargarRegistros() {
-    // Traer movimientos
-    const { data: movs } = await db.from('movimientos').select('*').order('id', { ascending: false }).limit(5);
-    // Traer pagos ONAT
-    const { data: onats } = await db.from('pagos_onat').select('*').order('id', { ascending: false }).limit(5);
+// ==========================================
+// 5. CARGAR DATOS Y CALCULAR BALANCE
+// ==========================================
+async function cargarDatos() {
+    // 1. Traer los movimientos de la base de datos
+    const { data: movimientos, error } = await supabaseClient
+        .from('movimientos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error al cargar datos:', error);
+        return;
+    }
+
+    // 2. Calcular el balance total
+    let balance = 0;
+    movimientos.forEach(mov => {
+        if (mov.tipo === 'ingreso') {
+            balance += Number(mov.monto);
+        } else if (mov.tipo === 'gasto') {
+            balance -= Number(mov.monto);
+        }
+    });
     
-    const lista = document.getElementById('lista-registros');
-    lista.innerHTML = '';
-
-    let totalIngresos = 0;
-    let totalGastos = 0;
-
-    if (movs) {
-        movs.forEach(m => {
-            if(m.tipo === 'ingreso') totalIngresos += m.monto;
-            if(m.tipo === 'gasto') totalGastos += m.monto;
-            
-            const color = m.tipo === 'ingreso' ? 'text-green-400' : 'text-red-400';
-            const signo = m.tipo === 'ingreso' ? '+' : '-';
-            lista.innerHTML += `
-                <div class="bg-slate-800 p-3 rounded-lg flex justify-between items-center shadow">
-                    <div>
-                        <p class="font-bold text-sm">${m.descripcion}</p>
-                        <p class="text-xs text-gray-400">Movimiento</p>
-                    </div>
-                    <p class="${color} font-bold">${signo} ${m.monto} CUP</p>
-                </div>`;
-        });
+    // Mostrar balance en pantalla
+    balanceTotal.textContent = balance.toFixed(2) + ' CUP';
+    
+    // Cambiar color del balance (verde si es positivo, rojo si es negativo)
+    if (balance < 0) {
+        balanceTotal.className = 'text-3xl font-bold text-red-500';
+    } else {
+        balanceTotal.className = 'text-3xl font-bold text-green-400';
     }
 
-    if (onats) {
-        onats.forEach(o => {
-            lista.innerHTML += `
-                <div class="bg-purple-900 p-3 rounded-lg flex justify-between items-center shadow border border-purple-500">
-                    <div>
-                        <p class="font-bold text-sm">Pago ONAT</p>
-                        <p class="text-xs text-purple-200">Fecha: ${o.fecha}</p>
-                    </div>
-                    <p class="text-white font-bold text-sm">Dep: ${o.deposito} | Imp: ${o.impuesto}</p>
-                </div>`;
-        });
+    // 3. Renderizar la lista de últimos registros
+    listaRegistros.innerHTML = ''; // Limpiar la lista
+
+    if (movimientos.length === 0) {
+        listaRegistros.innerHTML = '<p class="text-gray-500 text-center">No hay movimientos aún.</p>';
+        return;
     }
 
-    document.getElementById('balance-total').innerText = (totalIngresos - totalGastos).toFixed(2) + ' CUP';
+    movimientos.forEach(mov => {
+        const esIngreso = mov.tipo === 'ingreso';
+        const colorTexto = esIngreso ? 'text-green-400' : 'text-red-400';
+        const signo = esIngreso ? '+' : '-';
+        
+        // Crear el HTML para cada registro
+        const div = document.createElement('div');
+        div.className = 'bg-slate-800 p-3 rounded-lg flex justify-between items-center border border-slate-700';
+        div.innerHTML = `
+            <div>
+                <p class="font-bold text-white">${mov.descripcion}</p>
+                <p class="text-xs text-gray-400">${mov.tipo.toUpperCase()}</p>
+            </div>
+            <div class="text-right">
+                <p class="${colorTexto} font-bold">${signo} ${Number(mov.monto).toFixed(2)} CUP</p>
+            </div>
+        `;
+        listaRegistros.appendChild(div);
+    });
 }
 
-// --- 5. SISTEMA DE NOTIFICACIONES (Días 17, 18, 19 y 20) ---
+// ==========================================
+// 6. INICIALIZACIÓN
+// ==========================================
+// Cargar los datos apenas se abre la página
+cargarDatos();
+
+// (Opcional) Lógica simple para el botón de notificaciones
 document.getElementById('btn-notificaciones').addEventListener('click', () => {
-    if (!("Notification" in window)) {
-        alert("Tu teléfono no soporta notificaciones.");
-    } else if (Notification.permission !== "granted") {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                alert("¡Recordatorios activados! Te avisaremos los días 17, 18, 19 y 20.");
-                programarNotificacion();
-            }
-        });
-    } else {
-        alert("Ya tienes las notificaciones activadas.");
-    }
+    alert('Función de recordatorios en desarrollo.');
 });
-
-function programarNotificacion() {
-    const ahora = new Date();
-    const dia = ahora.getDate();
-    
-    // Si hoy es 17, 18, 19 o 20, lanza la notificación
-    if (dia >= 17 && dia <= 20) {
-        new Notification("📊 CifrasTCP - Aviso Importante", {
-            body: "¡Es periodo de pago de impuestos a la ONAT! No olvides registrar tu pago en la app.",
-            icon: "https://cdn-icons-png.flaticon.com/512/2489/2489756.png"
-        });
-    }
-}
-
-// Cargar datos al abrir la app
-cargarRegistros();
-setInterval(cargarRegistros, 5000); // Actualiza cada 5 segundos (opcional)
