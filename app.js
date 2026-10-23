@@ -1,6 +1,7 @@
 // --- 1. CONFIGURACIÓN DE SUPABASE ---
-const supabaseUrl = 'TU_URL_AQUI';
-const supabaseKey = 'TU_LLAVE_AQUI';
+const supabaseUrl = 'https://area960719.github.io/cifrastcp/
+';
+const supabaseKey = 'sb_publishable_RTmvgTh5XfJcVUw5Vc91HQ_I-O33fiJ';
 const db = supabase.createClient(supabaseUrl, supabaseKey);
 
 // --- 2. LÓGICA DEL FORMULARIO DE MOVIMIENTOS (Ingresos/Gastos) ---
