@@ -1,6 +1,6 @@
 // --- 1. CONFIGURACIÓN DE SUPABASE ---
-const supabaseUrl = 'https://area960719.github.io/cifrastcp/
-';
+const supabaseUrl = 'https://cqldvxxeplxhfsppyujs.supabase.co';
+
 const supabaseKey = 'sb_publishable_RTmvgTh5XfJcVUw5Vc91HQ_I-O33fiJ';
 const db = supabase.createClient(supabaseUrl, supabaseKey);
 
